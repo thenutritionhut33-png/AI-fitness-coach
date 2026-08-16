@@ -500,6 +500,35 @@ body {
 .toast.ok { border-color: rgba(34,197,94,0.5); }
 .toast.warn { border-color: rgba(245,158,11,0.5); color: #fcd34d; }
 
+.conn-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 24px;
+  background: rgba(255,61,61,0.08);
+  border-bottom: 1px solid rgba(255,61,61,0.3);
+  font-size: 13px;
+  color: #fca5a5;
+}
+
+.conn-banner.error { background: rgba(255,61,61,0.12); }
+.conn-banner.loading { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.3); color: #fcd34d; }
+
+.conn-banner-btn {
+  background: var(--card);
+  border: 1px solid rgba(255,61,61,0.4);
+  color: #fca5a5;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.conn-banner-btn:hover { border-color: var(--accent); background: var(--card-hover); }
+
 .modal-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
 
 .primary-btn {

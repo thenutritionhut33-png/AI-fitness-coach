@@ -35,6 +35,9 @@
     refreshModels: document.getElementById("refresh-models"),
     testConnection: document.getElementById("test-connection"),
     testResult: document.getElementById("test-result"),
+    connBanner: document.getElementById("conn-banner"),
+    connBannerText: document.getElementById("conn-banner-text"),
+    connBannerFix: document.getElementById("conn-banner-fix"),
   };
 
   const STORAGE_KEY = "fitcoach_settings";
@@ -663,6 +666,7 @@
   });
   els.refreshModels.addEventListener("click", loadFreeModels);
   els.testConnection.addEventListener("click", testConnection);
+  els.connBannerFix.addEventListener("click", openModal);
   els.saveSettings.addEventListener("click", function () {
     const hadKey = !!(loadSettings().apiKey || "");
     saveSettings();
@@ -670,10 +674,10 @@
     const s = loadSettings();
     if (!s.apiKey) {
       showToast("Settings saved. No API key set - AI mode is off.", "warn");
-    } else if (!hadKey) {
-      showToast("API key saved. AI mode is ON!", "ok");
+      hideConnBanner();
     } else {
-      showToast("Settings saved.", "ok");
+      showToast(hadKey ? "Settings saved." : "API key saved. Testing connection...", "ok");
+      setTimeout(autoCheckConnection, 300);
     }
   });
 
@@ -691,6 +695,41 @@
   els.disclaimerOverlay.addEventListener("click", function (e) {
     if (e.target === els.disclaimerOverlay) closeDisclaimer();
   });
+
+  function showConnBanner(msg, state) {
+    els.connBannerText.textContent = msg;
+    els.connBanner.className = "conn-banner " + (state || "");
+    if (state !== "loading") {
+      els.connBanner.classList.remove("hidden");
+    }
+  }
+
+  function hideConnBanner() {
+    els.connBanner.classList.add("hidden");
+  }
+
+  async function autoCheckConnection() {
+    const s = loadSettings();
+    if (!s.apiKey) {
+      hideConnBanner();
+      return;
+    }
+    showConnBanner("Checking AI connection...", "loading");
+    try {
+      const result = await callLLM(
+        [{ role: "user", text: "Reply with exactly: CONNECTION_OK" }],
+        currentCoach
+      );
+      if (result && result.ok) {
+        hideConnBanner();
+      } else {
+        const err = (result && result.error) || "No response";
+        showConnBanner("AI connection FAILED: " + err + " — click Fix now to correct your key.", "error");
+      }
+    } catch (e) {
+      showConnBanner("AI connection error: " + e.message, "error");
+    }
+  }
 
   function showToast(msg, type) {
     let t = document.getElementById("toast");
@@ -711,4 +750,5 @@
   restoreChat();
   scrollBottom();
   els.chatInput.focus();
+  setTimeout(autoCheckConnection, 600);
 })();
