@@ -397,19 +397,24 @@
       if (llmAnswer && llmAnswer.ok) {
         reply = llmAnswer.text;
       } else if (llmAnswer && !llmAnswer.ok) {
-        note = "**AI error:** " + llmAnswer.error + "\n\nHere's what " + currentCoach.name + " says from the built-in knowledge base instead:";
+        reply = "**AI ERROR - connection failed.**\n\n" +
+          "Provider returned: `" + llmAnswer.error + "`\n\n" +
+          "Fix options:\n" +
+          "- Check your API key is correct and active (AI Settings → Test AI connection)\n" +
+          "- For OpenRouter pick a model like `openrouter/free` or any `:free` model\n" +
+          "- For Gemini check the model name is valid\n\n" +
+          "Meanwhile, here's what " + currentCoach.name + " says from the built-in knowledge base:";
         const kb = knowledgeResponse(text, currentCoach);
-        reply = kb ? kb.response : defaultReply(text);
+        if (kb) {
+          reply += "\n\n" + kb.response;
+        }
       } else {
         const kb = knowledgeResponse(text, currentCoach);
         reply = kb ? kb.response : defaultReply(text);
       }
       hideTyping();
-      if (note) {
-        addMessage("bot", note, currentCoach.avatar, currentCoach.color);
-      }
       addMessage("bot", reply, currentCoach.avatar, currentCoach.color);
-      conv.push({ role: "bot", text: (note ? note + "\n\n" : "") + reply });
+      conv.push({ role: "bot", text: reply });
       currentChat = conv;
       persistChat();
       scrollBottom();
