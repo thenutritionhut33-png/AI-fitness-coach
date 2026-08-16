@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FitCoach AI - Your Ultimate Fitness Team</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="brand">
+        <div class="brand-logo">FC</div>
+        <div>
+          <h1>FitCoach AI</h1>
+          <p>Your ultimate fitness team</p>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <p class="section-label">CHOOSE YOUR COACH</p>
+        <ul id="coach-list"></ul>
+      </div>
+
+      <div class="sidebar-section">
+        <p class="section-label">QUICK ACTIONS</p>
+        <div class="quick-actions">
+          <button class="quick-btn" data-prompt="Give me a workout plan for today">Workout plan</button>
+          <button class="quick-btn" data-prompt="Build me a meal plan for the week">Meal plan</button>
+          <button class="quick-btn" data-prompt="How do I track my progress?">Progress tips</button>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button id="settings-btn" class="settings-btn">AI Settings</button>
+        <button id="reset-btn" class="settings-btn">Reset chat</button>
+        <p class="disclaimer-link" id="disclaimer-link">Medical disclaimer</p>
+      </div>
+    </aside>
+
+    <main id="main">
+      <header id="chat-header">
+        <div class="coach-info">
+          <div class="coach-avatar" id="coach-avatar">PT</div>
+          <div>
+            <h2 id="coach-name">Personal Trainer</h2>
+            <p id="coach-tagline">Building your foundation</p>
+          </div>
+        </div>
+        <div class="ai-status" id="ai-status">
+          <span class="status-dot"></span>
+          <span id="ai-status-text">Knowledge base mode</span>
+        </div>
+      </header>
+
+      <div id="messages"></div>
+
+      <div id="typing" class="typing hidden">
+        <span></span><span></span><span></span>
+      </div>
+
+      <form id="chat-form">
+        <textarea id="chat-input" rows="1" placeholder="Ask your coach anything..." autocomplete="off"></textarea>
+        <button type="submit" id="send-btn" aria-label="Send">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </form>
+    </main>
+  </div>
+
+  <div id="modal-overlay" class="hidden">
+    <div id="settings-modal" class="modal">
+      <div class="modal-header">
+        <h3>AI Settings</h3>
+        <button id="modal-close" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-hint">
+          FitCoach AI runs on a built-in expert knowledge base out of the box.
+          Optionally connect your own OpenAI-compatible API for richer answers.
+        </p>
+        <label for="api-provider">AI Provider</label>
+        <select id="api-provider">
+          <option value="openai">OpenAI-compatible (sk-...)</option>
+          <option value="gemini">Google Gemini (AIza...)</option>
+        </select>
+        <label for="api-key">API Key</label>
+        <input type="password" id="api-key" placeholder="sk-... or AIza..." autocomplete="off" />
+        <label for="api-base" id="api-base-label">Base URL</label>
+        <input type="text" id="api-base" placeholder="https://api.openai.com/v1" />
+        <label for="api-model">Model</label>
+        <input type="text" id="api-model" placeholder="gpt-4o-mini / gemini-2.0-flash" />
+        <p class="modal-note">Keys are stored only in your browser (localStorage) and are sent directly to the API provider you configure. For Gemini, paste your key (starts with AIza) and select Google Gemini.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="save-settings" class="primary-btn">Save settings</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="disclaimer-overlay" class="hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Medical Disclaimer</h3>
+        <button id="disclaimer-close" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body disclaimer-body">
+        <p>
+          FitCoach AI provides general fitness, nutrition, and lifestyle education.
+          It is <strong>not</strong> a licensed medical professional and does not
+          provide medical diagnoses, prescriptions, or treatment plans.
+        </p>
+        <p>
+          Any discussion of hormones, hormone replacement therapy (HRT / TRT),
+          anabolic agents, or performance-enhancing substances is strictly
+          educational. Never begin, stop, or change any medication or supplement
+          without consulting a qualified physician. Hormone therapy is a medical
+          decision that requires bloodwork and professional supervision.
+        </p>
+        <p>
+          Consult a doctor before starting any new exercise or diet program,
+          especially if you have existing health conditions.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/knowledge.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
