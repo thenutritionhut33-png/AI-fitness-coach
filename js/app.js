@@ -229,12 +229,23 @@
         signal: controller.signal,
       });
       clearTimeout(timer);
-      if (!res.ok) return null;
+      if (!res.ok) {
+        return { ok: false, error: "HTTP " + res.status + " - " + (await safeErrorText(res)) };
+      }
       const data = await res.json();
       const content = data.choices && data.choices[0] && data.choices[0].message.content;
-      return content || null;
+      return content ? { ok: true, text: content } : { ok: false, error: "Empty response" };
     } catch (e) {
-      return null;
+      return { ok: false, error: "Network error: " + e.message };
+    }
+  }
+
+  async function safeErrorText(res) {
+    try {
+      const j = await res.json();
+      return (j.error && (j.error.message || j.error.status)) || res.statusText;
+    } catch (e) {
+      return res.statusText;
     }
   }
 
@@ -275,7 +286,9 @@
         }
       );
       clearTimeout(timer);
-      if (!res.ok) return null;
+      if (!res.ok) {
+        return { ok: false, error: "HTTP " + res.status + " - " + (await safeErrorText(res)) };
+      }
       const data = await res.json();
       const content =
         data.candidates &&
@@ -284,9 +297,9 @@
         data.candidates[0].content.parts &&
         data.candidates[0].content.parts[0] &&
         data.candidates[0].content.parts[0].text;
-      return content || null;
+      return content ? { ok: true, text: content } : { ok: false, error: "Empty response" };
     } catch (e) {
-      return null;
+      return { ok: false, error: "Network error: " + e.message };
     }
   }
 
@@ -294,6 +307,37 @@
     const s = loadSettings();
     if (!s.apiKey) return null;
     const provider = effectiveProvider(s);
+
+    // Prefer the same-origin backend proxy (no CORS issues, key never exposed).
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(function () { controller.abort(); }, 35000);
+      const res = await fetch("/api/llm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: provider,
+          apiKey: s.apiKey,
+          apiBase: s.apiBase,
+          apiModel: s.apiModel,
+          conversation: conversation,
+          coach: { name: coach.name, desc: coach.desc },
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data.ok === "boolean") {
+          if (data.ok) return { ok: true, text: data.text };
+          return { ok: false, error: data.error || "Proxy error" };
+        }
+      }
+    } catch (e) {
+      // fall through to browser-direct call
+    }
+
+    // Fallback: call provider directly from the browser (works if served statically).
     if (provider === "gemini") {
       return callGemini(conversation, coach, s);
     }
@@ -315,19 +359,23 @@
 
     callLLM(conv, currentCoach).then(function (llmAnswer) {
       let reply;
-      if (llmAnswer) {
-        reply = llmAnswer;
+      let note = null;
+      if (llmAnswer && llmAnswer.ok) {
+        reply = llmAnswer.text;
+      } else if (llmAnswer && !llmAnswer.ok) {
+        note = "**AI error:** " + llmAnswer.error + "\n\nHere's what " + currentCoach.name + " says from the built-in knowledge base instead:";
+        const kb = knowledgeResponse(text, currentCoach);
+        reply = kb ? kb.response : defaultReply(text);
       } else {
         const kb = knowledgeResponse(text, currentCoach);
-        if (kb) {
-          reply = kb.response;
-        } else {
-          reply = defaultReply(text);
-        }
+        reply = kb ? kb.response : defaultReply(text);
       }
       hideTyping();
+      if (note) {
+        addMessage("bot", note, currentCoach.avatar, currentCoach.color);
+      }
       addMessage("bot", reply, currentCoach.avatar, currentCoach.color);
-      conv.push({ role: "bot", text: reply });
+      conv.push({ role: "bot", text: (note ? note + "\n\n" : "") + reply });
       currentChat = conv;
       persistChat();
       scrollBottom();

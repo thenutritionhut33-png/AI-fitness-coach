@@ -1,0 +1,13 @@
+{
+  "name": "fitcoach-ai",
+  "version": "1.0.0",
+  "description": "FitCoach AI - fitness bot with 7 coach personas",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
