@@ -77,6 +77,10 @@ async function handleAI(req, res) {
       const result = await callGemini(body, apiKey);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(result));
+    } else if (provider === "openrouter") {
+      const result = await callOpenAI(body, apiKey, "https://openrouter.ai/api/v1");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(result));
     } else {
       const result = await callOpenAI(body, apiKey);
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -137,8 +141,8 @@ async function callGemini(body, apiKey) {
   return content ? { ok: true, text: content } : { ok: false, error: "Empty Gemini response" };
 }
 
-async function callOpenAI(body, apiKey) {
-  const base = (body.apiBase || "https://api.openai.com/v1").replace(/\/+$/, "");
+async function callOpenAI(body, apiKey, defaultBase) {
+  const base = (body.apiBase || defaultBase || "https://api.openai.com/v1").replace(/\/+$/, "");
   const model = body.apiModel || "gpt-4o-mini";
   const messages = [{ role: "system", content: buildSystemPrompt(body.coach || {}) }].concat(
     (body.conversation || []).map(function (m) {
@@ -171,12 +175,47 @@ async function safeErrorText(res) {
   }
 }
 
+async function handleModels(req, res) {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(function () { controller.abort(); }, 15000);
+    const r = await fetch("https://openrouter.ai/api/v1/models", {
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!r.ok) {
+      res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, error: "OpenRouter models fetch failed HTTP " + r.status }));
+      return;
+    }
+    const data = await r.json();
+    const free = (data.data || []).filter(function (m) {
+      const p = m.pricing || {};
+      return parseFloat(p.prompt || "inf") === 0 && parseFloat(p.completion || "inf") === 0;
+    });
+    const list = free.map(function (m) {
+      return { id: m.id, name: (m.name || m.id).split("(")[0].trim() };
+    });
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, models: list }));
+  } catch (e) {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: false, error: "Models fetch error: " + e.message }));
+  }
+}
+
 const server = http.createServer(function (req, res) {
   const url = new URL(req.url, "http://localhost:" + PORT);
   const pathname = url.pathname;
 
   if (req.method === "POST" && pathname === "/api/llm") {
     handleAI(req, res);
+    return;
+  }
+
+  if (pathname === "/api/models") {
+    handleModels(req, res);
     return;
   }
 

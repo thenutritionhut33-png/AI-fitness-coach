@@ -31,6 +31,8 @@
     apiBase: document.getElementById("api-base"),
     apiModel: document.getElementById("api-model"),
     apiBaseLabel: document.getElementById("api-base-label"),
+    modelOptions: document.getElementById("model-options"),
+    refreshModels: document.getElementById("refresh-models"),
   };
 
   const STORAGE_KEY = "fitcoach_settings";
@@ -47,7 +49,9 @@
 
   function effectiveProvider(s) {
     if (s.provider) return s.provider;
-    if (s.apiKey && s.apiKey.trim().indexOf("AIza") === 0) return "gemini";
+    const k = s.apiKey || "";
+    if (k.indexOf("AIza") === 0) return "gemini";
+    if (k.indexOf("sk-or-") === 0) return "openrouter";
     return "openai";
   }
 
@@ -307,6 +311,7 @@
     const s = loadSettings();
     if (!s.apiKey) return null;
     const provider = effectiveProvider(s);
+    const apiBase = provider === "openrouter" ? "https://openrouter.ai/api/v1" : s.apiBase;
 
     // Prefer the same-origin backend proxy (no CORS issues, key never exposed).
     try {
@@ -318,7 +323,7 @@
         body: JSON.stringify({
           provider: provider,
           apiKey: s.apiKey,
-          apiBase: s.apiBase,
+          apiBase: apiBase,
           apiModel: s.apiModel,
           conversation: conversation,
           coach: { name: coach.name, desc: coach.desc },
@@ -341,7 +346,7 @@
     if (provider === "gemini") {
       return callGemini(conversation, coach, s);
     }
-    return callOpenAI(conversation, coach, s);
+    return callOpenAI(conversation, coach, { apiKey: s.apiKey, apiBase: apiBase, apiModel: s.apiModel });
   }
 
   // ---------- Chat flow ----------
@@ -462,14 +467,75 @@
     els.apiKey.value = s.apiKey || "";
     els.apiBase.value = s.apiBase || "";
     els.apiModel.value = s.apiModel || "";
-    toggleBaseField(provider);
+    toggleProviderFields(provider);
     els.modalOverlay.classList.remove("hidden");
+    if (provider === "openrouter") {
+      loadFreeModels();
+    } else {
+      populateModelOptions(provider);
+    }
   }
 
   function toggleBaseField(provider) {
     const show = provider !== "gemini";
     els.apiBase.style.display = show ? "" : "none";
     els.apiBaseLabel.style.display = show ? "" : "none";
+  }
+
+  function toggleProviderFields(provider) {
+    toggleBaseField(provider);
+    els.refreshModels.classList.toggle("hidden", provider !== "openrouter");
+    if (provider !== "openrouter") {
+      els.apiModel.placeholder = provider === "gemini" ? "gemini-2.0-flash" : "gpt-4o-mini";
+    }
+  }
+
+  const MODEL_SUGGESTIONS = {
+    gemini: ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite"],
+    openai: ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"],
+  };
+
+  function populateModelOptions(provider) {
+    const list = els.modelOptions;
+    list.innerHTML = "";
+    const suggestions = MODEL_SUGGESTIONS[provider] || [];
+    suggestions.forEach(function (m) {
+      const opt = document.createElement("option");
+      opt.value = m;
+      list.appendChild(opt);
+    });
+  }
+
+  async function loadFreeModels() {
+    const btn = els.refreshModels;
+    btn.textContent = "Loading free models...";
+    btn.disabled = true;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(function () { controller.abort(); }, 15000);
+      const res = await fetch("/api/models", { signal: controller.signal });
+      clearTimeout(timer);
+      const data = await res.json();
+      if (data.ok && data.models && data.models.length) {
+        els.modelOptions.innerHTML = "";
+        data.models.forEach(function (m) {
+          const opt = document.createElement("option");
+          opt.value = m.id;
+          opt.textContent = m.id + " (" + m.name + ")";
+          els.modelOptions.appendChild(opt);
+        });
+        btn.textContent = "Loaded " + data.models.length + " free models";
+      } else {
+        btn.textContent = "Failed to load - click to retry";
+      }
+    } catch (e) {
+      btn.textContent = "Failed to load - click to retry";
+    } finally {
+      btn.disabled = false;
+      setTimeout(function () {
+        btn.textContent = "Refresh free models from OpenRouter";
+      }, 4000);
+    }
   }
 
   function closeModal() {
@@ -505,13 +571,21 @@
   els.resetBtn.addEventListener("click", resetChat);
   els.apiProvider.addEventListener("change", function () {
     const provider = els.apiProvider.value;
-    toggleBaseField(provider);
+    toggleProviderFields(provider);
+    if (provider === "openrouter") {
+      loadFreeModels();
+    } else {
+      populateModelOptions(provider);
+    }
     if (provider === "gemini" && !els.apiModel.value.trim()) {
       els.apiModel.value = "gemini-2.0-flash";
     } else if (provider === "openai" && !els.apiModel.value.trim()) {
       els.apiModel.value = "gpt-4o-mini";
+    } else if (provider === "openrouter" && !els.apiModel.value.trim()) {
+      els.apiModel.value = "openrouter/free";
     }
   });
+  els.refreshModels.addEventListener("click", loadFreeModels);
   els.saveSettings.addEventListener("click", function () {
     saveSettings();
     closeModal();

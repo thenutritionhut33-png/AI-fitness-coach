@@ -82,20 +82,23 @@
       <div class="modal-body">
         <p class="modal-hint">
           FitCoach AI runs on a built-in expert knowledge base out of the box.
-          Optionally connect your own OpenAI-compatible API for richer answers.
+          Connect your own AI API (Gemini, OpenRouter free models, or any OpenAI-compatible endpoint) for richer answers.
         </p>
         <label for="api-provider">AI Provider</label>
         <select id="api-provider">
-          <option value="openai">OpenAI-compatible (sk-...)</option>
           <option value="gemini">Google Gemini (AIza...)</option>
+          <option value="openrouter">OpenRouter (free models)</option>
+          <option value="openai">OpenAI-compatible (sk-...)</option>
         </select>
         <label for="api-key">API Key</label>
-        <input type="password" id="api-key" placeholder="sk-... or AIza..." autocomplete="off" />
+        <input type="password" id="api-key" placeholder="AIza... / sk-or-... / sk-..." autocomplete="off" />
         <label for="api-base" id="api-base-label">Base URL</label>
         <input type="text" id="api-base" placeholder="https://api.openai.com/v1" />
         <label for="api-model">Model</label>
-        <input type="text" id="api-model" placeholder="gpt-4o-mini / gemini-2.0-flash" />
-        <p class="modal-note">Keys are stored only in your browser (localStorage) and are sent directly to the API provider you configure. For Gemini, paste your key (starts with AIza) and select Google Gemini.</p>
+        <input type="text" id="api-model" list="model-options" placeholder="Select or type a model" autocomplete="off" />
+        <datalist id="model-options"></datalist>
+        <button id="refresh-models" class="models-btn hidden" type="button">Refresh free models from OpenRouter</button>
+        <p class="modal-note">Keys are stored only in your browser (localStorage). With OpenRouter, pick any <b>:free</b> model or paste your own. Use the refresh button to load the latest free list.</p>
       </div>
       <div class="modal-footer">
         <button id="save-settings" class="primary-btn">Save settings</button>
