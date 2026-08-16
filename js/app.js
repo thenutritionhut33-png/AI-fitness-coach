@@ -33,15 +33,44 @@
     apiBaseLabel: document.getElementById("api-base-label"),
     modelOptions: document.getElementById("model-options"),
     refreshModels: document.getElementById("refresh-models"),
+    testConnection: document.getElementById("test-connection"),
+    testResult: document.getElementById("test-result"),
   };
 
   const STORAGE_KEY = "fitcoach_settings";
   const CHAT_KEY = "fitcoach_chat";
 
+  // In-memory fallback for environments where localStorage is blocked (iframes/private mode).
+  let memorySettings = null;
+
+  function storageGet(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch (e) {
+      return key === STORAGE_KEY ? memorySettings : null;
+    }
+  }
+
+  function storageSet(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch (e) {
+      if (key === STORAGE_KEY) memorySettings = value;
+      return false;
+    }
+  }
+
+  function storageRemove(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch (e) { /* ignore */ }
+  }
+
   // ---------- Settings ----------
   function loadSettings() {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+      return JSON.parse(storageGet(STORAGE_KEY)) || {};
     } catch (e) {
       return {};
     }
@@ -62,7 +91,7 @@
       apiBase: els.apiBase.value.trim(),
       apiModel: els.apiModel.value.trim(),
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    storageSet(STORAGE_KEY, JSON.stringify(s));
     updateStatus();
   }
 
@@ -70,7 +99,7 @@
     const s = loadSettings();
     const hasLLM = !!s.apiKey;
     const provider = effectiveProvider(s);
-    const label = provider === "gemini" ? "Gemini AI" : "AI mode";
+    const label = provider === "gemini" ? "Gemini AI" : provider === "openrouter" ? "OpenRouter AI" : "AI mode";
     els.aiStatus.classList.toggle("llm", hasLLM);
     els.aiStatusText.textContent = hasLLM ? label + " (" + (s.apiModel || "custom") + ")" : "Knowledge base mode";
   }
@@ -389,13 +418,18 @@
 
   function defaultReply(text) {
     const s = loadSettings();
-    const llmHint = s.apiKey
-      ? ""
-      : "\n\n**Tip:** Connect your own AI API key in Settings for deeper answers from " + currentCoach.name + ".";
+    if (!s.apiKey) {
+      return "**AI not configured yet.** I could only search my built-in knowledge base and found nothing specific for \"" + text + "\".\n\n" +
+        "To unlock full AI answers:\n" +
+        "1. Click **AI Settings** (left sidebar)\n" +
+        "2. Select **OpenRouter** (free) or **Gemini**\n" +
+        "3. Paste your API key\n" +
+        "4. Click **Save settings**, then **Test AI connection**\n\n" +
+        "After that, ask me again!";
+    }
     return "Great question. Here's my coaching take on \"" + text + "\":\n\n" +
       "For a fully tailored answer, give me more specifics: your **experience level**, **goal**, **training days**, and any **limitations**. " +
-      "That lets me build a plan specific to you rather than general advice." +
-      llmHint;
+      "That lets me build a plan specific to you rather than general advice.";
   }
 
   // ---------- Chat persistence ----------
@@ -415,13 +449,13 @@
           return { role: role, text: bubble ? bubble.textContent : "" };
         }),
       };
-      localStorage.setItem(CHAT_KEY, JSON.stringify(data));
+      storageSet(CHAT_KEY, JSON.stringify(data));
     } catch (e) { /* ignore */ }
   }
 
   function restoreChat() {
     try {
-      const data = JSON.parse(localStorage.getItem(CHAT_KEY));
+      const data = JSON.parse(storageGet(CHAT_KEY));
       if (!data) return;
       const coach = coaches.find(function (c) { return c.id === data.coachId; });
       if (coach) currentCoach = coach;
@@ -447,7 +481,7 @@
   }
 
   function resetChat() {
-    localStorage.removeItem(CHAT_KEY);
+    storageRemove(CHAT_KEY);
     currentChat = null;
     els.messages.innerHTML = "";
     addMessage("bot", currentCoach.greeting, currentCoach.avatar, currentCoach.color);
@@ -538,6 +572,43 @@
     }
   }
 
+  async function testConnection() {
+    const s = loadSettings();
+    const btn = els.testConnection;
+    const out = els.testResult;
+    if (!s.apiKey) {
+      out.textContent = "No API key saved. Paste your key above and click Save settings first.";
+      out.className = "test-result error";
+      return;
+    }
+    btn.textContent = "Testing...";
+    btn.disabled = true;
+    out.textContent = "Sending test message...";
+    out.className = "test-result";
+    try {
+      const result = await callLLM(
+        [{ role: "user", text: "Reply with exactly: CONNECTION_OK" }],
+        currentCoach
+      );
+      if (result && result.ok) {
+        out.textContent = "SUCCESS - AI replied: " + result.text.slice(0, 80);
+        out.className = "test-result success";
+      } else if (result && !result.ok) {
+        out.textContent = "FAILED - " + result.error;
+        out.className = "test-result error";
+      } else {
+        out.textContent = "FAILED - no AI response (key may not be saved / AI not configured).";
+        out.className = "test-result error";
+      }
+    } catch (e) {
+      out.textContent = "FAILED - " + e.message;
+      out.className = "test-result error";
+    } finally {
+      btn.textContent = "Test AI connection";
+      btn.disabled = false;
+    }
+  }
+
   function closeModal() {
     els.modalOverlay.classList.add("hidden");
   }
@@ -586,9 +657,19 @@
     }
   });
   els.refreshModels.addEventListener("click", loadFreeModels);
+  els.testConnection.addEventListener("click", testConnection);
   els.saveSettings.addEventListener("click", function () {
+    const hadKey = !!(loadSettings().apiKey || "");
     saveSettings();
     closeModal();
+    const s = loadSettings();
+    if (!s.apiKey) {
+      showToast("Settings saved. No API key set - AI mode is off.", "warn");
+    } else if (!hadKey) {
+      showToast("API key saved. AI mode is ON!", "ok");
+    } else {
+      showToast("Settings saved.", "ok");
+    }
   });
 
   document.querySelectorAll(".quick-btn").forEach(function (btn) {
@@ -605,6 +686,20 @@
   els.disclaimerOverlay.addEventListener("click", function (e) {
     if (e.target === els.disclaimerOverlay) closeDisclaimer();
   });
+
+  function showToast(msg, type) {
+    let t = document.getElementById("toast");
+    if (!t) {
+      t = document.createElement("div");
+      t.id = "toast";
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.className = "toast " + (type || "");
+    t.classList.add("show");
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function () { t.classList.remove("show"); }, 3500);
+  }
 
   // ---------- Init ----------
   updateStatus();

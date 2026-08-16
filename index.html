@@ -6,7 +6,7 @@
   <title>FitCoach AI - Your Ultimate Fitness Team</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=2" />
+  <link rel="stylesheet" href="css/style.css?v=3" />
 </head>
 <body>
   <div id="app">
@@ -98,6 +98,8 @@
         <input type="text" id="api-model" list="model-options" placeholder="Select or type a model" autocomplete="off" />
         <datalist id="model-options"></datalist>
         <button id="refresh-models" class="models-btn hidden" type="button">Refresh free models from OpenRouter</button>
+        <button id="test-connection" class="models-btn" type="button">Test AI connection</button>
+        <p id="test-result" class="test-result"></p>
         <p class="modal-note">Keys are stored only in your browser (localStorage). With OpenRouter, pick any <b>:free</b> model or paste your own. Use the refresh button to load the latest free list.</p>
       </div>
       <div class="modal-footer">
@@ -133,7 +135,7 @@
     </div>
   </div>
 
-  <script src="js/knowledge.js?v=2"></script>
-  <script src="js/app.js?v=2"></script>
+  <script src="js/knowledge.js?v=3"></script>
+  <script src="js/app.js?v=3"></script>
 </body>
 </html>
